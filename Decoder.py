@@ -10,7 +10,7 @@ class Lines:
     def parse(self):
         line = self.file.readline()
         self.num = line[:4]
-        self.text = line[6:].replace(" ", "")
+        self.text = line[6:].replace(" ", "").strip()   # added strip()
         self.idx = 0
 
 class Ethernet:
@@ -159,7 +159,7 @@ class IP:
             lines.idx += 2
         #2 bytes of line read; idx = 4
         if self.IHL != 20:
-            self.parse_options(self, lines)
+            self.parse_options(lines)   # removed "self" from arguments
     
     #stores options as string
     def parse_options(self, lines):
@@ -264,31 +264,42 @@ class DNS:
                            15:'MX', 35:'NAPTR', 2:'NS', 47:'NSEC', 50:'NSEC3', 51:'NSEC3PARAM', 61:'OPENPGPKEY', 12:'PTR', 17:'RP', 46:'RRSIG', 24:'SIG', 53:'SMIMEA',
                            6:'SOA', 33:'SRV', 44:'SSHFP', 64:'SVCB', 32768:'TA', 249:'TKEY', 52:'TLSA', 250:'TSIG', 16:'TXT', 256:'URI', 63:'ZONEMD', 252:'AXFR', 
                            251:'IXFR', 41:'OPT'}
-        self.class_table = {'0x0001':'IN', '0x0003':'CH', '0x0004':'HS'}
+        self.class_table = {'0x0001':'IN', '0x0003':'CH', '0x0004':'HS'}    # added missing 0
 
     #parses file lines into single string for DNS
-    def parse(self, lines, length):
-        remaining = length
-        section = ''
-        while remaining != 0:
-            if 32 - lines.idx > length:
-                section += lines.text[lines.idx:lines.idx+length]
-                lines.idx = lines.idx + length
-                remaining = 0
-            elif 32 - lines.idx == length:
-                section += lines.text[lines.idx:]
-                lines.parse()
-                remaining = 0
-            else:
-                section += lines.text[lines.idx:]
-                remaining = length - (32 - lines.idx)
-                lines.parse()
+    # def parse(self, lines, length):
+    #     remaining = length
+    #     section = ''
+    #     print("*************lines.idx", lines.idx)
+    #     while remaining != 0:
+    #         if 32 - lines.idx > length:
+    #             section += lines.text[lines.idx:lines.idx+length]
+    #             lines.idx = lines.idx + length
+    #             remaining = 0
+    #         elif 32 - lines.idx == length:
+    #             section += lines.text[lines.idx:]
+    #             lines.parse()
+    #             remaining = 0
+    #         else:
+    #             section += lines.text[lines.idx:]
+    #             remaining = length - (32 - lines.idx)
+    #             lines.parse()
+    #     print("************section", section)
+    #     return section
+
+    def parse(self, lines):
+        section = ""
+        while lines.text != "":
+            section += lines.text[lines.idx:]
+            lines.parse()
         return section
+        
     
-    def decode(self, lines, length): #finish
-        text = self.parse(lines, length)
-        print("**********text***************")
-        print(text)
+    # def decode(self, lines, length): #finish
+    #     text = self.parse(lines, length)
+
+    def decode(self, lines): #finish
+        text = self.parse(lines)
         idx = 0
         self.id = '0x' + text[idx:idx+4]
         idx += 4
@@ -342,119 +353,139 @@ class DNS:
         self.num_additional = int(text[idx:idx+4], 16)
         idx += 4
 
-        #given number of items; decode and append to list (list in list or tuple in list)
         BYTE_CH = 2
         TYPE_CH, CLASS_CH, RDATA_LEN_CH = 4, 4, 4
         TTL_CH = 8
-        NAME_END = "00"
-        SEP = '.'
+        
+        NAME_END = "00" # ending label
+        SEP = '.'       # separator for names and IP addresses
 
-        #if no compression case
-        if self.TC[0] == 0:
-            for i in range(self.num_q):
-                qname = ""
-                qtype = None
-                qclass = None
+        CMPR_HIND = 0xc000  # compression label hex indicator    
+        CMPR_CH = 4
 
-                # decode NAME
-                while text[idx:idx+BYTE_CH] != NAME_END:
-                    label_len = int(text[idx:idx+BYTE_CH], 16)
-                    idx += BYTE_CH
+        cmpr_table = dict()    
 
-                    subname = ""
-                    for byte in range(label_len):
-                        subname += chr(int(text[idx:idx+BYTE_CH], 16))
-                        idx += BYTE_CH
-                    
-                    qname += subname + SEP
-                
-                # remove extra '.'
-                qname = qname[:-1]
-                # skip "00" indicating end of NAME 
+        #given number of items; decode and append to list (list in list or tuple in list)
+
+        def decompress(offset):
+            if offset in cmpr_table:
+                return cmpr_table[offset]
+            
+            data_label = ""
+            ptr = offset * BYTE_CH
+            # read data labels, if any
+            while (text[ptr:ptr+BYTE_CH] != NAME_END and 
+                   int(text[ptr:ptr+CMPR_CH], 16) & CMPR_HIND != CMPR_HIND):
+                label_len = int(text[ptr:ptr+BYTE_CH], 16)
+                ptr += BYTE_CH
+                for byte in range(label_len):
+                    data_label += chr(int(text[ptr:ptr+BYTE_CH], 16))
+                    ptr += BYTE_CH
+                data_label += SEP
+
+            if text[ptr:ptr+BYTE_CH] == NAME_END:   # end of data labels
+                data_label = data_label[:-1]    # remove extra '.'
+                cmpr_table[offset] = data_label
+            else:   # reached compression label
+                offset = int(text[ptr:ptr+CMPR_CH], 16) - CMPR_HIND
+                data_label += decompress(offset)
+            return data_label
+        
+        def decode_name(idx):
+            rname = ""
+            # read data labels, if any
+            while (text[idx:idx+BYTE_CH] != NAME_END and 
+                   int(text[idx:idx+CMPR_CH], 16) & CMPR_HIND != CMPR_HIND):
+                label_len = int(text[idx:idx+BYTE_CH], 16)
                 idx += BYTE_CH
-                        
-                # decode TYPE
-                qtype = self.type_table.get(int(text[idx:idx+TYPE_CH]), 16)
-                idx += TYPE_CH
-
-                # decode CLASS
-                qclass = self.class_table.get("0x" + text[idx:idx+CLASS_CH])
-                idx += CLASS_CH
-
-                self.questions.append((qname, qtype, qclass))
-
-            for i in range(self.num_answer):
-                rname = ""
-                rtype = None
-                rclass = None
-                ttl = None
-                rdata_len = None
-                rdata = ""
-
-                # decode NAME
-                while text[idx:idx+BYTE_CH] != NAME_END:
-                    label_len = int(text[idx:idx+BYTE_CH], 16)
+                for byte in range(label_len):
+                    rname += chr(int(text[idx:idx+BYTE_CH], 16))
                     idx += BYTE_CH
+                rname += SEP
+            
+            if text[idx:idx+BYTE_CH] == NAME_END:   # end of data labels
+                rname = rname[:-1]  # remove extra '.'
+                idx += BYTE_CH  # skip "00" indicating end of NAME
+            else: # reached compression label
+                offset = int(text[idx:idx+CMPR_CH], 16) - CMPR_HIND
+                rname += decompress(offset)
+                idx += CMPR_CH
+            return idx, rname
 
-                    subname = ""
-                    for byte in range(label_len):
-                        subname += chr(int(text[idx:idx+BYTE_CH], 16))
-                        idx += BYTE_CH
-                    
-                    rname += subname + SEP
-                
-                # remove extra '.'
-                rname = rname[:-1]
-                # skip "00" indicating end of NAME 
+        def decode_type(idx):
+            itype = int(text[idx:idx+TYPE_CH], 16)
+            rtype = self.type_table.get(itype)
+            idx += TYPE_CH
+            return idx, itype, rtype
+        
+        def decode_class(idx):
+            rclass = self.class_table.get("0x" + text[idx:idx+CLASS_CH])
+            idx += CLASS_CH
+            return idx, rclass
+
+        def decode_ttl(idx):
+            ttl = int(text[idx:idx+TTL_CH], 16)
+            idx += TTL_CH
+            return idx, ttl
+
+        def decode_ipaddr(idx, rdata_len):
+            ipaddr = ""
+            for byte in range(rdata_len):
+                ipaddr += str(int(text[idx:idx+BYTE_CH], 16))
+                ipaddr += SEP
                 idx += BYTE_CH
-                        
-                # decode TYPE
-                rtype = self.type_table.get(int(text[idx:idx+TYPE_CH]), 16)
-                idx += TYPE_CH
+            ipaddr = ipaddr[:-1]  # remove extra '.'
+            return idx, ipaddr
+        
+        def decode_rdata_len(idx):
+            rdata_len = int(text[idx:idx+RDATA_LEN_CH], 16)
+            idx += RDATA_LEN_CH
+            return idx, rdata_len
+        
+        def decode_rdata(idx, itype, rdata_len):
+            rdata = ""
+            match itype:
+                case 1 | 28:        # A, AAAA
+                    idx, rdata = decode_ipaddr(idx, rdata_len)
+                case 5 | 2 | 15:    # CNAME, NS, MX
+                    idx, rdata = decode_name(idx)
+                case _ :            # Other types
+                    rdata = None                
+            return idx, rdata
+        
+        for i in range(self.num_q):
+            idx, qname = decode_name(idx)
+            idx, _, qtype = decode_type(idx)
+            idx, qclass = decode_class(idx)
+            self.questions.append((qname, qtype, qclass))
 
-                # decode CLASS
-                rclass = self.class_table.get("0x" + text[idx:idx+CLASS_CH])
-                idx += CLASS_CH
+        for i in range(self.num_answer):
+            idx, rname = decode_name(idx)
+            idx, itype, rtype = decode_type(idx)
+            idx, rclass = decode_class(idx)
+            idx, ttl = decode_ttl(idx)
+            idx, rdata_len = decode_rdata_len(idx)
+            idx, rdata = decode_rdata(idx, itype, rdata_len)
+            self.answers.append((rname, rtype, rclass, ttl, rdata_len, rdata))
 
-                # decode TTL
-                ttl = int(text[idx:idx+TTL_CH], 16)
-                idx += TTL_CH
+        for i in range(self.num_authority):
+            idx, rname = decode_name(idx)
+            idx, itype, rtype = decode_type(idx)
+            idx, rclass = decode_class(idx)
+            idx, ttl = decode_ttl(idx)
+            idx, rdata_len = decode_rdata_len(idx)
+            idx, rdata = decode_rdata(idx, itype, rdata_len)
+            self.authority.append((rname, rtype, rclass, ttl, rdata_len, rdata))
+            
+        for i in range(self.num_additional):
+            idx, rname = decode_name(idx)
+            idx, itype, rtype = decode_type(idx)
+            idx, rclass = decode_class(idx)
+            idx, ttl = decode_ttl(idx)
+            idx, rdata_len = decode_rdata_len(idx)
+            idx, rdata = decode_rdata(idx, itype, rdata_len)
+            self.additional.append((rname, rtype, rclass, ttl, rdata_len, rdata))
 
-                # decode RDATA_LENGTH
-                rdata_len = int(text[idx:idx+RDATA_LEN_CH], 16)
-                idx += RDATA_LEN_CH
-
-                # decode RDATA
-                for byte in range(rdata_len):
-                    rdata += int(text[idx:idx+BYTE_CH], 16)
-                    rdata += SEP
-                    idx += BYTE_CH
-
-                # remove extra '.'
-                rdata = rdata[:-1]
-
-                self.answers.append((rname, rtype, rclass, ttl, rdata))
-
-            for i in range(self.num_authority):
-                #decode stuff
-                pass
-            for i in range(self.num_additional):
-                #decode stuff
-                pass
-        #compression case
-        else:
-            for i in range(self.num_q):
-                #decode stuff
-                pass
-            for i in range(self.num_answer):
-                #decode stuff
-                pass
-            for i in range(self.num_authority):
-                #decode stuff
-                pass
-            for i in range(self.num_additional):
-                #decode stuff
-                pass
 
 class DHCP:
     def __init__(self):
@@ -515,7 +546,8 @@ while True:
         elif layer4.s_port == 53 or layer4.d_port == 53:
             layer7 = DNS()
             length = layer4.length - 8
-            layer7.decode(text, length)
+            # layer7.decode(text, length)
+            layer7.decode(text)
             print('Transaction ID: {}'.format(layer7.id))
             print('Flags: {}'.format(layer7.flags))
             print(' {0}... .... .... .... = {1}'.format(layer7.QR[0], layer7.QR[1]))
@@ -534,24 +566,40 @@ while True:
             if len(layer7.questions) != 0:
                 print('Queries: ')
                 for question in layer7.questions:
-                    print('Name: {}'.format(question[0]))
-                    print('Type: {}'.format(question[1]))
-                    print('Class: {}'.format(question[2]))
+                    print('\tName: {}'.format(question[0]))
+                    print('\tType: {}'.format(question[1]))
+                    print('\tClass: {}'.format(question[2]))
+                    print()
             if len(layer7.answers) != 0:
                 print('Answers: ')
                 for answer in layer7.answers:
-                    print('Name: {}'.format(answer[0]))
-                    print('Type: {}'.format(answer[1]))
-                    print('Class: {}'.format(answer[2]))
-                    print('Time to live: {}'.format(answer[3]))
-                    print('Data Length: {}'.format(answer[4]))
-                    print('Address: {}'.format(answer[5]))
+                    print('\tName: {}'.format(answer[0]))
+                    print('\tType: {}'.format(answer[1]))
+                    print('\tClass: {}'.format(answer[2]))
+                    print('\tTime to live: {}'.format(answer[3]))
+                    print('\tData Length: {}'.format(answer[4]))
+                    print('\tAddress: {}\n'.format(answer[5]) if answer[5] is not None else "", end="")
+                    print()
             if len(layer7.authority) != 0:
                 print('Authority Records: ')
-                pass
+                for record in layer7.authority:
+                    print('\tName: {}'.format(record[0]))
+                    print('\tType: {}'.format(record[1]))
+                    print('\tClass: {}'.format(record[2]))
+                    print('\tTime to live: {}'.format(record[3]))
+                    print('\tData Length: {}'.format(record[4]))
+                    print('\tAddress: {}\n'.format(record[5]) if record[5] is not None else "", end="")
+                    print()
             if len(layer7.additional) != 0:
                 print('Additional Records: ')
-                pass
+                for record in layer7.additional:
+                    print('\tName: {}'.format(record[0]))
+                    print('\tType: {}'.format(record[1]))
+                    print('\tClass: {}'.format(record[2]))
+                    print('\tTime to live: {}'.format(record[3]))
+                    print('\tData Length: {}'.format(record[4]))
+                    print('\tAddress: {}\n'.format(record[5]) if record[5] is not None else "", end="")
+                    print()
     else:
         print('Layer 4: N/A')
         print()
