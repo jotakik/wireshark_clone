@@ -481,11 +481,38 @@ class DHCP:
         self.sname = None
         self.file = None
         self.options = None
+        self.magic_cookie = None
         self.htype_table = {1:"Ethernet (10Mb)", 2:"Experimental Ethernet (3Mb)", 3:"Amateur Radio AX.25", 4:"Proteon ProNET Token Ring",
                             5:"Chaos", 6:"IEEE 802 Networks", 7:"ARCNET", 8:"Hyperchannel", 9:"Lanstar", 10:"Autonet Short Address",
                             11:"LocalTalk", 12:"LocalNet (IBM PCNet or SYTEK LocalNET)", 13:"Ultra link", 14:"SMDS", 15:"Frame Relay",
                             16:"Asynchronous Transmission Mode (ATM)"}
-
+        self.message_type_table = {
+            1: "DHCP DISCOVER", 2: "DHCP OFFER", 3: "DHCP REQUEST", 4: "DHCP DECLINE", 5: "DHCP ACK", 6: "DHCP NAK", 7: "DHCP RELEASE", 8: "DHCP INFORM"
+        }
+        
+        
+        self.options_table = {
+            1: "Subnet Mask", 2: "Time Offset", 3: "Router", 4: "Time Server", 5: "Name Server", 6: "Domain Name Server", 
+            7: "Log Server", 8: "Cookie Server", 9: "LPR Server", 10: "Impress Server", 11: "Resource Location Server",
+            12: "Host Name", 13: "Boot File Size", 14: "Merit Dump File", 15: "Domain Name", 16: "Swap Server", 17: "Root Path",
+            18: "Extensions Path", 19: "IP Forwarding Enable/Disable", 20: "Non-Local Source Routing Enable/Disable",
+            21: "Policy Filter", 22: "Maximum Datagram Reassembly Size", 23: "Default IP Time-to-live", 24: "Path MTU Aging Timeout",
+            25: "Path MTU Plateau Table", 26: "Interface MTU", 27: "All Subnets are Local", 28: "Broadcast Address", 29: "Perform Mask Discovery",
+            30: "Mask Supplier", 31: "Perform Router Discovery", 32: "Router Solicitation Address", 33: "Static Route", 34: "Trailer Encapsulation",
+            35: "ARP Cache Timeout", 36: "Ethernet Encapsulation", 37: "TCP Default TTL", 38: "TCP Keepalive Interval", 39: "TCP Keepalive Garbage",
+            40: "Network Information Service Domain", 41: "Network Information Servers", 42: "NTP Servers", 43: "Vendor Specific Information",
+            44: "NetBIOS over TCP/IP Name Server", 45: "NetBIOS over TCP/IP Datagram Distribution Server", 46: "NetBIOS over TCP/IP Node Type",
+            47: "NetBIOS over TCP/IP Scope", 48: "X Window System Font Server", 49: "X Window System Display Manager", 50: "Request IP Address",
+            51: "IP Address Lease Time", 52: "Option Overload", 53: "DHCP Message Type", 54: "Server Identifier", 55: "Parameter Request List",
+            56: "Message", 57: "Maximum DHCP Message Size", 58: "Renewal (T1) Time Value", 59: "Rebinding (T2) Time Value", 60: "Vendor class identifier",
+            61: "Client-identifier", 62: "NetWare/IP Domain Name", 63: "NetWare/IP sub Options", 64: "NIS+ Domain", 65: "NIS+ Servers", 66: "TFTP Server Name",
+            67: "Bootfile Name", 68: "Mobile IP Home Agent", 69: "Simple Mail Transport Protocol (SMTP) Server", 70: "Post Office Protocol (POP3) Server",
+            71: "Network News Transport Protocol (NNTP) Server", 72: "Default World Wide Web (WWW) Server", 73: "Default Finger Server", 74: "Default Internet Relay Chat (IRC) Server",
+            75: "StreetTalk Server", 76: "StreetTalk Directory Assistance (STDA) Server", 77: "User Class Information", 78: "SLP Directory Agent", 79: "SLP Service Scope",
+            80: "Rapid Commit", 81: "FQDN", 82: "Relay Agent Information", 83: "iSNS", 84: "RDNSS Selection", 85: "KRB5 Realm Name", 86: "KRB5 KDC",
+            87: "Client NTP", 119: "Domain Search", 120: "SIP Servers DHCP Option", 121: "Classless Static Route Option", 122: "CCC", 123: "GeoConf",
+            249: "Private/Classless Static Route Option", 252: "Private Proxy Auto-Discovery", 255: "End of Options List"
+        }
 
     def parse(self, lines):
         section = ""
@@ -498,6 +525,7 @@ class DHCP:
         BYTE_CH = 2
         SEC_CH, FLAGS_CH = 4, 4
         XID_CH = 8
+        COOKIE_CH = 8
         HW_ADDR_PAD_CH = 20
         SNAME_CH = 128
         FNAME_CH = 256
@@ -605,6 +633,62 @@ class DHCP:
                 self.file += chr(int(text[ptr:ptr+BYTE_CH], 16))
                 ptr += BYTE_CH
         idx += FNAME_CH
+        
+        #decode magic cookie
+        if text[idx:idx+COOKIE_CH] != NAME_END:
+            self.magic_cookie = text[idx:idx+COOKIE_CH]
+            idx += COOKIE_CH
+        
+        # decode options
+        self.options = []
+        while text[idx:idx+BYTE_CH] != "ff":
+            option = int(text[idx:idx+BYTE_CH], 16)
+            idx += BYTE_CH
+            if option == 0:
+                break
+            length = int(text[idx:idx+BYTE_CH], 16)
+            idx += BYTE_CH
+            data = text[idx:idx+length*BYTE_CH]
+            idx += length*BYTE_CH
+            if option == 1:
+                subnet_mask = ""
+                for i in range(2, len(data)):
+                    subnet_mask += str(int(data[i], 16))
+                    if i % 2 == 1 and i != len(data)-1:
+                        subnet_mask += IP_SEP
+                self.options.append((option, self.options_table[option], subnet_mask))
+            elif option == 12:
+                hostname = ""
+                for i in range(2, len(data)):
+                    hostname += data[i]
+                    
+                
+            elif option == 51:
+                self.options.append((option, self.options_table[option], f"{int(data, 16)} seconds"))
+            elif option == 53:
+                self.options.append((option, self.options_table[option], f"{int(data, 16)} ({self.message_type_table[int(data, 16)]})"))
+            elif option == 55:
+                parameters = []
+                for i in range(length):
+                    parameters.append((int(data[i*BYTE_CH:i*BYTE_CH+BYTE_CH], 16), self.options_table.get(int(data[i*BYTE_CH:i*BYTE_CH+BYTE_CH], 16))))
+                self.options.append((option, self.options_table[option], parameters))
+            elif option == 57:
+                self.options.append((option, self.options_table[option], f'{int(data, 16)} bytes'))
+            elif option == 61:
+                client_mac = ""
+                idtype = self.htype_table.get(int(data[:2], 16))
+                for i in range(2, len(data)):
+                    client_mac += data[i]
+                    if i % 2 == 1 and i != len(data)-1:
+                        client_mac += MAC_SEP
+                self.options.append((option, self.options_table[option], f"Type: {int(data[:2], 16)} ({idtype}) Client Mac: {client_mac}"))
+            else:
+                self.options.append((option, self.options_table[option], data))
+        
+        # decode end of options list
+        self.options.append((255, self.options_table[255], "End of Options List"))
+        
+        
 
 
 #fix output reqs
@@ -674,6 +758,12 @@ while True:
             print(f"Client hardware address padding: {layer7.chaddr_pad}")
             print("Server host name not given" if layer7.sname is None else f"Server host name: {layer7.sname}")
             print("Boot file name not given" if layer7.file is None else f"Boot file name: {layer7.file}")
+            print("Magic cookie not given" if layer7.magic_cookie is None else f"Magic cookie: {layer7.magic_cookie}")
+            print("Options: ")
+            for option in layer7.options:
+                print(f"\t{option[0]} ({option[1]}): {option[2]}")
+            print()
+            
 
         elif layer4.s_port == 53 or layer4.d_port == 53:
             layer7 = DNS()
