@@ -652,7 +652,22 @@ class DHCP:
             idx += BYTE_CH
             data = text[idx:idx+length*BYTE_CH]
             idx += length*BYTE_CH
-            if option == 53:
+            if option == 1:
+                subnet_mask = ""
+                for i in range(2, len(data)):
+                    subnet_mask += str(int(data[i], 16))
+                    if i % 2 == 1 and i != len(data)-1:
+                        subnet_mask += IP_SEP
+                self.options.append((option, self.options_table[option], subnet_mask))
+            elif option == 12:
+                hostname = ""
+                for i in range(2, len(data)):
+                    hostname += data[i]
+                    
+                
+            elif option == 51:
+                self.options.append((option, self.options_table[option], f"{int(data, 16)} seconds"))
+            elif option == 53:
                 self.options.append((option, self.options_table[option], f"{int(data, 16)} ({self.message_type_table[int(data, 16)]})"))
             elif option == 55:
                 parameters = []
