@@ -657,10 +657,7 @@ class DHCP:
                     if i % 2 == 1 and i != len(data)-1:
                         subnet_mask += IP_SEP
                 self.options.append((option, self.options_table[option], subnet_mask))
-            elif option == 12:
-                hostname = ""
-                for i in range(2, len(data)):
-                    hostname += data[i]
+
                     
                 
             elif option == 51:
