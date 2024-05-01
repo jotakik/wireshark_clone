@@ -159,7 +159,7 @@ class IP:
             lines.idx += 2
         #2 bytes of line read; idx = 4
         if self.IHL != 20:
-            self.parse_options(lines)   # removed "self" from arguments
+            self.parse_options(lines)
     
     #stores options as string
     def parse_options(self, lines):
@@ -266,26 +266,6 @@ class DNS:
                            251:'IXFR', 41:'OPT'}
         self.class_table = {'0x0001':'IN', '0x0003':'CH', '0x0004':'HS'}    # added missing 0
 
-    #parses file lines into single string for DNS
-    # def parse(self, lines, length):
-    #     remaining = length
-    #     section = ''
-    #     print("*************lines.idx", lines.idx)
-    #     while remaining != 0:
-    #         if 32 - lines.idx > length:
-    #             section += lines.text[lines.idx:lines.idx+length]
-    #             lines.idx = lines.idx + length
-    #             remaining = 0
-    #         elif 32 - lines.idx == length:
-    #             section += lines.text[lines.idx:]
-    #             lines.parse()
-    #             remaining = 0
-    #         else:
-    #             section += lines.text[lines.idx:]
-    #             remaining = length - (32 - lines.idx)
-    #             lines.parse()
-    #     print("************section", section)
-    #     return section
 
     def parse(self, lines):
         section = ""
@@ -294,11 +274,8 @@ class DNS:
             lines.parse()
         return section
         
-    
-    # def decode(self, lines, length): #finish
-    #     text = self.parse(lines, length)
 
-    def decode(self, lines): #finish
+    def decode(self, lines):
         text = self.parse(lines)
         idx = 0
         self.id = '0x' + text[idx:idx+4]
@@ -357,15 +334,13 @@ class DNS:
         TYPE_CH, CLASS_CH, RDATA_LEN_CH = 4, 4, 4
         TTL_CH = 8
         
-        NAME_END = "00" # ending label
+        NAME_END = "00" # ending label for data label
         SEP = '.'       # separator for names and IP addresses
 
         CMPR_HIND = 0xc000  # compression label hex indicator    
         CMPR_CH = 4
 
         cmpr_table = dict()    
-
-        #given number of items; decode and append to list (list in list or tuple in list)
 
         def decompress(offset):
             if offset in cmpr_table:
@@ -453,6 +428,7 @@ class DNS:
                     rdata = None                
             return idx, rdata
         
+        # given number of items; decode and append to list (list in list or tuple in list)
         for i in range(self.num_q):
             idx, qname = decode_name(idx)
             idx, _, qtype = decode_type(idx)
@@ -489,7 +465,148 @@ class DNS:
 
 class DHCP:
     def __init__(self):
-        self.d = None
+        self.mtype = None
+        self.htype = None
+        self.hlen = None
+        self.hops = None
+        self.xid = None
+        self.secs = None
+        self.flags = None
+        self.ciaddr = None
+        self.yiaddr = None
+        self.siaddr = None
+        self.giaddr = None
+        self.chaddr = None
+        self.chaddr_pad = None
+        self.sname = None
+        self.file = None
+        self.options = None
+        self.htype_table = {1:"Ethernet (10Mb)", 2:"Experimental Ethernet (3Mb)", 3:"Amateur Radio AX.25", 4:"Proteon ProNET Token Ring",
+                            5:"Chaos", 6:"IEEE 802 Networks", 7:"ARCNET", 8:"Hyperchannel", 9:"Lanstar", 10:"Autonet Short Address",
+                            11:"LocalTalk", 12:"LocalNet (IBM PCNet or SYTEK LocalNET)", 13:"Ultra link", 14:"SMDS", 15:"Frame Relay",
+                            16:"Asynchronous Transmission Mode (ATM)"}
+
+
+    def parse(self, lines):
+        section = ""
+        while lines.text != "":
+            section += lines.text[lines.idx:]
+            lines.parse()
+        return section
+    
+    def decode(self, lines):
+        BYTE_CH = 2
+        SEC_CH, FLAGS_CH = 4, 4
+        XID_CH = 8
+        HW_ADDR_PAD_CH = 20
+        SNAME_CH = 128
+        FNAME_CH = 256
+
+        FLAG_BITS = 16
+        IP_ADDR_BYTES = 4
+        HW_ADDR_BYTES = 6
+
+        BFLAG_HIND = 0x8000
+        IP_SEP = '.'
+        MAC_SEP = ':'
+        NAME_END = "00"
+
+        text = self.parse(lines)
+        idx = 0
+
+        # decode portion of DHCP header message that is of fixed size
+
+        # decode op code / message type; 1 byte
+        op = int(text[idx:idx+BYTE_CH], 16)
+        idx += BYTE_CH
+        if op == 1: self.mtype = "BOOTREQUEST"
+        elif op == 2: self.mtype = "BOOTREPLY"
+
+        # decode hardware address type; 1 byte
+        htype_int = int(text[idx:idx+BYTE_CH], 16)
+        idx += BYTE_CH
+        self.htype = self.htype_table.get(htype_int)
+
+        # decode hardware address length; 1 byte
+        self.hlen = int(text[idx:idx+BYTE_CH], 16)
+        idx += BYTE_CH
+
+        # decode hops; 1 byte
+        self.hops = int(text[idx:idx+BYTE_CH], 16)
+        idx += BYTE_CH
+
+        # decode transaction ID; 4 bytes
+        self.xid = "0x" + text[idx:idx+XID_CH]
+        idx += XID_CH
+
+        # decode seconds elapsed since client began address acquisition or renewal process; 2 bytes
+        self.secs = int(text[idx:idx+SEC_CH], 16)
+        idx += SEC_CH
+
+        # decode BROADCAST and MUST BE ZERO flags; total 2 bytes
+        flags_int = int(text[idx:idx+FLAGS_CH], 16)
+        idx += FLAGS_CH
+        self.flags = ""
+        for bit in range(FLAG_BITS):
+            self.flags += str(flags_int & (BFLAG_HIND >> bit))
+        
+        # decode client IP address; 4 bytes
+        self.ciaddr = str(int(text[idx:idx+BYTE_CH], 16))
+        idx += BYTE_CH
+        for byte in range(IP_ADDR_BYTES-1):
+            self.ciaddr += IP_SEP + str(int(text[idx:idx+BYTE_CH], 16))
+            idx += BYTE_CH
+        
+        # decode 'your' (client) IP address; 4 bytes
+        self.yiaddr = str(int(text[idx:idx+BYTE_CH], 16))
+        idx += BYTE_CH
+        for byte in range(IP_ADDR_BYTES-1):
+            self.yiaddr += IP_SEP + str(int(text[idx:idx+BYTE_CH], 16))
+            idx += BYTE_CH
+
+        # decode IP address of next server to use in bootstrap; 4 bytes
+        self.siaddr = str(int(text[idx:idx+BYTE_CH], 16))
+        idx += BYTE_CH
+        for byte in range(IP_ADDR_BYTES-1):
+            self.siaddr += IP_SEP + str(int(text[idx:idx+BYTE_CH], 16))
+            idx += BYTE_CH
+
+        # decode relay agent IP address; 4 bytes
+        self.giaddr = str(int(text[idx:idx+BYTE_CH], 16))
+        idx += BYTE_CH
+        for byte in range(IP_ADDR_BYTES-1):
+            self.giaddr += IP_SEP + str(int(text[idx:idx+BYTE_CH], 16))
+            idx += BYTE_CH
+
+        # decode client hardware address and padding; 6 + 10 bytes
+        self.chaddr = text[idx:idx+BYTE_CH]
+        idx += BYTE_CH
+        for byte in range(HW_ADDR_BYTES-1):
+            self.chaddr += MAC_SEP + text[idx:idx+BYTE_CH]
+            idx += BYTE_CH
+
+        self.chaddr_pad = text[idx:idx+HW_ADDR_PAD_CH]
+        idx += HW_ADDR_PAD_CH
+        
+        # decode optional server host name; 64 bytes
+        if text[idx:idx+BYTE_CH] != NAME_END:
+            self.sname = ""
+            ptr = idx
+            while text[ptr:ptr+BYTE_CH] != NAME_END:
+                self.sname += chr(int(text[ptr:ptr+BYTE_CH], 16))
+                ptr += BYTE_CH
+        
+        idx += SNAME_CH
+
+        # decode boot file name
+        if text[idx:idx+BYTE_CH] != NAME_END:
+            self.file = ""
+            ptr = idx
+            while text[ptr:ptr+BYTE_CH] != NAME_END:
+                self.file += chr(int(text[ptr:ptr+BYTE_CH], 16))
+                ptr += BYTE_CH
+        
+        idx += FNAME_CH
 
 
 #fix output reqs
@@ -542,11 +659,26 @@ while True:
         #dhcp finish
         if layer4.s_port == 68 or layer4.d_port == 68:
             layer7 = DHCP()
-        #dns finish
+            layer7.decode(text)
+            print(f"Message type: {layer7.mtype}")
+            print(f"Hardware type: {layer7.htype}")
+            print(f"Hardware address length: {layer7.hlen}")
+            print(f"Hops: {layer7.hops}")
+            print(f"Transaction ID: {layer7.xid}")
+            print(f"Seconds elapsed: {layer7.secs}")
+            print(f" {layer7.flags[0]}... .... .... .... = Broadcast flag")
+            print(f" .{layer7.flags[1:4]} {layer7.flags[4:8]} {layer7.flags[8:12]} {layer7.flags[12:]} = Reserved flags")
+            print(f"Client IP address: {layer7.ciaddr}")
+            print(f"Your (client) IP address: {layer7.yiaddr}")
+            print(f"Next server IP address: {layer7.siaddr}")
+            print(f"Relay agent IP address: {layer7.giaddr}")
+            print(f"Client MAC address: {layer7.chaddr}")
+            print(f"Client hardware address padding: {layer7.chaddr_pad}")
+            print("Server host name not given" if layer7.sname is None else f"Server host name: {layer7.sname}")
+            print("Boot file name not given" if layer7.file is None else f"Boot file name: {layer7.file}")
+
         elif layer4.s_port == 53 or layer4.d_port == 53:
             layer7 = DNS()
-            length = layer4.length - 8
-            # layer7.decode(text, length)
             layer7.decode(text)
             print('Transaction ID: {}'.format(layer7.id))
             print('Flags: {}'.format(layer7.flags))
