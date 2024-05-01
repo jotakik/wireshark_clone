@@ -458,7 +458,18 @@ class DNS:
 
 class DHCP:
     def __init__(self):
-        self.d = None
+        self.opcode = None
+        self.htype = None
+        self.hlen = None
+        self.hops = None
+        
+        
+    def parse(self, lines, length):
+        pass
+    
+    def decode(self, lines, length):
+        pass
+        
 
 
 #fix output reqs
