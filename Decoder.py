@@ -624,7 +624,6 @@ class DHCP:
             while text[ptr:ptr+BYTE_CH] != NAME_END:
                 self.sname += chr(int(text[ptr:ptr+BYTE_CH], 16))
                 ptr += BYTE_CH
-        
         idx += SNAME_CH
 
         # decode boot file name
@@ -634,7 +633,6 @@ class DHCP:
             while text[ptr:ptr+BYTE_CH] != NAME_END:
                 self.file += chr(int(text[ptr:ptr+BYTE_CH], 16))
                 ptr += BYTE_CH
-        
         idx += FNAME_CH
         
         #decode magic cookie
