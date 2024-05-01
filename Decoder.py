@@ -651,27 +651,25 @@ class DHCP:
             idx += BYTE_CH
             data = text[idx:idx+length*BYTE_CH]
             idx += length*BYTE_CH
-            if option == 1:
-                subnet_mask = ""
+            if option == 1 or option == 54 or option == 50:
+                ip_address = ""
                 for i in range(length):
-                    subnet_mask += str(int(data[i*BYTE_CH:i*BYTE_CH+BYTE_CH], 16))
+                    ip_address += str(int(data[i*BYTE_CH:i*BYTE_CH+BYTE_CH], 16))
                     if i != length-1:
-                        subnet_mask += IP_SEP
+                        ip_address += IP_SEP
                 
-                self.options.append((option, self.options_table[option], subnet_mask))
+                self.options.append((option, self.options_table[option], ip_address))
             
-            elif option == 51:
-                # self.options.append((option, self.options_table[option], f"{int(data, 16)} seconds"))
-                self.options.append((option, self.options_table[option], data))
+            elif option == 51 or option == 58 or option == 59:
+                self.options.append((option, self.options_table[option], f"{int(data, 16)} seconds"))
             elif option == 53:
                 self.options.append((option, self.options_table[option], f"{int(data, 16)} ({self.message_type_table[int(data, 16)]})"))
+                
             elif option == 55:
                 parameters = []
                 for i in range(length):
                     parameters.append((int(data[i*BYTE_CH:i*BYTE_CH+BYTE_CH], 16), self.options_table.get(int(data[i*BYTE_CH:i*BYTE_CH+BYTE_CH], 16))))
                 self.options.append((option, self.options_table[option], parameters))
-            elif option == 57:
-                self.options.append((option, self.options_table[option], f'{int(data, 16)} bytes'))
             elif option == 61:
                 client_mac = ""
                 idtype = self.htype_table.get(int(data[:2], 16))
