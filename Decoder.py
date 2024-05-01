@@ -657,12 +657,6 @@ class DHCP:
                     subnet_mask += str(int(data[i*BYTE_CH:i*BYTE_CH+BYTE_CH], 16))
                     if i != length-1:
                         subnet_mask += IP_SEP
-<<<<<<< HEAD
-                self.options.append((option, self.options_table[option], subnet_mask))
-
-                    
-=======
->>>>>>> a711014a8883f1c3bb9e40e0f9d2f26c334a675b
                 
                 self.options.append((option, self.options_table[option], subnet_mask))
             
