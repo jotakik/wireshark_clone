@@ -510,7 +510,7 @@ class DHCP:
             71: "Network News Transport Protocol (NNTP) Server", 72: "Default World Wide Web (WWW) Server", 73: "Default Finger Server", 74: "Default Internet Relay Chat (IRC) Server",
             75: "StreetTalk Server", 76: "StreetTalk Directory Assistance (STDA) Server", 77: "User Class Information", 78: "SLP Directory Agent", 79: "SLP Service Scope",
             80: "Rapid Commit", 81: "FQDN", 82: "Relay Agent Information", 83: "iSNS", 84: "RDNSS Selection", 85: "KRB5 Realm Name", 86: "KRB5 KDC",
-            87: "Client NTP", 119: "Domain Search", 120: "SIP Servers DHCP Option", 121: "Classless Static Route Option", 122: "CCC", 123: "GeoConf",
+            87: "Client NTP", 95: "LDAP", 108: "IPv6-Only Preferred", 114: "DCHP Captive-Portal", 119: "Domain Search", 120: "SIP Servers DHCP Option", 121: "Classless Static Route Option", 122: "CCC", 123: "GeoConf",
             249: "Private/Classless Static Route Option", 252: "Private Proxy Auto-Discovery", 255: "End of Options List"
         }
 
@@ -645,31 +645,50 @@ class DHCP:
         while text[idx:idx+BYTE_CH] != "ff":
             option = int(text[idx:idx+BYTE_CH], 16)
             idx += BYTE_CH
-            if option == 0:
-                break
             length = int(text[idx:idx+BYTE_CH], 16)
             idx += BYTE_CH
             data = text[idx:idx+length*BYTE_CH]
             idx += length*BYTE_CH
+            if option == 0:
+                self.options.append((option, self.options_table[option], "Padding"))
+            
             if option == 1 or option == 54 or option == 50:
                 ip_address = ""
                 for i in range(length):
                     ip_address += str(int(data[i*BYTE_CH:i*BYTE_CH+BYTE_CH], 16))
                     if i != length-1:
                         ip_address += IP_SEP
-                
                 self.options.append((option, self.options_table[option], ip_address))
             
+            elif option == 6:
+                dns_server1 = ""
+                dns_server2 = ""
+                for i in range(length/2):
+                    dns_server1 += str(int(data[i*BYTE_CH:i*BYTE_CH+BYTE_CH], 16))
+                    dns_server2 += str(int(data[(length/2+i)*BYTE_CH:(length/2+i)*BYTE_CH+BYTE_CH], 16))
+                    if i != length/2-1:
+                        dns_server1 += IP_SEP
+                        dns_server2 += IP_SEP
+                self.options.append((option, self.options_table[option], f"DNS Server 1: {dns_server1} DNS Server 2: {dns_server2}"))
+                    
+            
+            elif option == 12:
+                hostname = ""
+                for i in range(length):
+                    hostname += chr(int(data[i*BYTE_CH:i*BYTE_CH+BYTE_CH], 16))
+                self.options.append((option, self.options_table[option], hostname))
+
             elif option == 51 or option == 58 or option == 59:
                 self.options.append((option, self.options_table[option], f"{int(data, 16)} seconds"))
             elif option == 53:
                 self.options.append((option, self.options_table[option], f"{int(data, 16)} ({self.message_type_table[int(data, 16)]})"))
-                
             elif option == 55:
                 parameters = []
                 for i in range(length):
                     parameters.append((int(data[i*BYTE_CH:i*BYTE_CH+BYTE_CH], 16), self.options_table.get(int(data[i*BYTE_CH:i*BYTE_CH+BYTE_CH], 16))))
                 self.options.append((option, self.options_table[option], parameters))
+            elif option == 57:
+                self.options.append((option, self.options_table[option], f"{int(data, 16)} bytes"))
             elif option == 61:
                 client_mac = ""
                 idtype = self.htype_table.get(int(data[:2], 16))
