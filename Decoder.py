@@ -653,10 +653,11 @@ class DHCP:
             idx += length*BYTE_CH
             if option == 1:
                 subnet_mask = ""
-                for i in range(2, len(data)):
-                    subnet_mask += str(int(data[i], 16))
-                    if i % 2 == 1 and i != len(data)-1:
+                for i in range(length):
+                    subnet_mask += str(int(data[i*BYTE_CH:i*BYTE_CH+BYTE_CH], 16))
+                    if i != length-1:
                         subnet_mask += IP_SEP
+                
                 self.options.append((option, self.options_table[option], subnet_mask))
             
             elif option == 51:
