@@ -540,6 +540,7 @@ class DHCP:
         NAME_END = "00"
 
         text = self.parse(lines)
+        
         idx = 0
 
         # decode portion of DHCP header message that is of fixed size
@@ -652,16 +653,22 @@ class DHCP:
             idx += length*BYTE_CH
             if option == 1:
                 subnet_mask = ""
-                for i in range(2, len(data)):
-                    subnet_mask += str(int(data[i], 16))
-                    if i % 2 == 1 and i != len(data)-1:
+                for i in range(length):
+                    subnet_mask += str(int(data[i*BYTE_CH:i*BYTE_CH+BYTE_CH], 16))
+                    if i != length-1:
                         subnet_mask += IP_SEP
+<<<<<<< HEAD
                 self.options.append((option, self.options_table[option], subnet_mask))
 
                     
+=======
+>>>>>>> a711014a8883f1c3bb9e40e0f9d2f26c334a675b
                 
+                self.options.append((option, self.options_table[option], subnet_mask))
+            
             elif option == 51:
-                self.options.append((option, self.options_table[option], f"{int(data, 16)} seconds"))
+                # self.options.append((option, self.options_table[option], f"{int(data, 16)} seconds"))
+                self.options.append((option, self.options_table[option], data))
             elif option == 53:
                 self.options.append((option, self.options_table[option], f"{int(data, 16)} ({self.message_type_table[int(data, 16)]})"))
             elif option == 55:
