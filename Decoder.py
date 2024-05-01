@@ -493,13 +493,47 @@ class DHCP:
         self.htype = None
         self.hlen = None
         self.hops = None
+        self.transid = None
+        self.secs = None
+        self.flags = None
+        self.ciaddr = None
+        self.yiaddr = None
+        self.siaddr = None
+        self.giaddr = None
+        self.chaddr = None
+        self.sname = None
+        self.file = None
+        self.options_table = {
+            53: 'DHCP Message Type', 54: 'DHCP Server Identifier', 50: 'DHCP Requested IP Address', 1: 'Subnet Mask', 3: 'Gateway', 51: 'IP Address Lease Time', 59: 'DHCP Rebinding Time Value', 
+            61: 'Client Identifier', 
+        }
+        self.message_table = {
+            1: 'Discover', 2: 'Offer', 3: 'Request', 4: 'Decline', 5: 'Acknowledge', 6: 'Negative Acknowledge', 7: 'Release', 8: 'Inform'
+        }
         
         
-    def parse(self, lines, length):
-        pass
+        
+    def parse(self, lines):
+        section = ""
+        while lines.text != "":
+            section += lines.text[lines.idx:]
+            lines.parse()
+        return section
     
-    def decode(self, lines, length):
-        pass
+    
+    
+    def decode(self, lines):
+        text = self.parse(lines)
+        idx = 0
+        self.opcode = '0x' + text[idx:idx+2]
+        idx += 2
+        self.htype = '0x' + text[idx:idx+2]
+        idx += 2
+        self.hlen = int(text[idx:idx+2], 16)
+        idx += 2
+        self.hops = int(text[idx:idx+2], 16)
+        idx += 2
+        self.transid = '0x' + text[idx:idx+8]
         
 
 
