@@ -548,20 +548,19 @@ class DHCP:
         # decode op code / message type; 1 byte
         op = int(text[idx:idx+BYTE_CH], 16)
         idx += BYTE_CH
-        if op == 1: self.mtype = "BOOTREQUEST"
-        elif op == 2: self.mtype = "BOOTREPLY"
+        if op == 1: self.mtype = "0x01 (BOOTREQUEST)"
+        elif op == 2: self.mtype = "0x02 (BOOTREPLY)"
 
         # decode hardware address type; 1 byte
         htype_int = int(text[idx:idx+BYTE_CH], 16)
+        self.htype = f"0x{text[idx:idx+BYTE_CH]} {self.htype_table.get(htype_int)}"
         idx += BYTE_CH
-        self.htype = self.htype_table.get(htype_int)
-
         # decode hardware address length; 1 byte
-        self.hlen = int(text[idx:idx+BYTE_CH], 16)
+        self.hlen = f"0x{text[idx:idx+BYTE_CH]} ({int(text[idx:idx+BYTE_CH], 16)} bytes)"
         idx += BYTE_CH
 
         # decode hops; 1 byte
-        self.hops = int(text[idx:idx+BYTE_CH], 16)
+        self.hops = f"0x{text[idx:idx+BYTE_CH]} ({int(text[idx:idx+BYTE_CH], 16)})"
         idx += BYTE_CH
 
         # decode transaction ID; 4 bytes
@@ -569,7 +568,7 @@ class DHCP:
         idx += XID_CH
 
         # decode seconds elapsed since client began address acquisition or renewal process; 2 bytes
-        self.secs = int(text[idx:idx+SEC_CH], 16)
+        self.secs = f"0x{text[idx:idx+SEC_CH]} ({int(text[idx:idx+SEC_CH], 16)} seconds)"
         idx += SEC_CH
 
         # decode BROADCAST and MUST BE ZERO flags; total 2 bytes
@@ -580,40 +579,47 @@ class DHCP:
             self.flags += str(flags_int & (BFLAG_HIND >> bit))
         
         # decode client IP address; 4 bytes
-        self.ciaddr = str(int(text[idx:idx+BYTE_CH], 16))
+        self.ciaddr = f"0x{text[idx:idx+8]} ({str(int(text[idx:idx+BYTE_CH], 16))}"
+        
         idx += BYTE_CH
         for byte in range(IP_ADDR_BYTES-1):
             self.ciaddr += IP_SEP + str(int(text[idx:idx+BYTE_CH], 16))
             idx += BYTE_CH
+        self.ciaddr += ")"
+        
         
         # decode 'your' (client) IP address; 4 bytes
-        self.yiaddr = str(int(text[idx:idx+BYTE_CH], 16))
+        self.yiaddr = f"0x{text[idx:idx+8]} ({str(int(text[idx:idx+BYTE_CH], 16))}"
         idx += BYTE_CH
         for byte in range(IP_ADDR_BYTES-1):
             self.yiaddr += IP_SEP + str(int(text[idx:idx+BYTE_CH], 16))
             idx += BYTE_CH
+        self.yiaddr += ")"
 
         # decode IP address of next server to use in bootstrap; 4 bytes
-        self.siaddr = str(int(text[idx:idx+BYTE_CH], 16))
+        self.siaddr = f"0x{text[idx:idx+8]} ({str(int(text[idx:idx+BYTE_CH], 16))}"
         idx += BYTE_CH
         for byte in range(IP_ADDR_BYTES-1):
             self.siaddr += IP_SEP + str(int(text[idx:idx+BYTE_CH], 16))
             idx += BYTE_CH
+        self.siaddr += ")"
 
         # decode relay agent IP address; 4 bytes
-        self.giaddr = str(int(text[idx:idx+BYTE_CH], 16))
+        self.giaddr = f"0x{text[idx:idx+8]} ({str(int(text[idx:idx+BYTE_CH], 16))}"
         idx += BYTE_CH
         for byte in range(IP_ADDR_BYTES-1):
             self.giaddr += IP_SEP + str(int(text[idx:idx+BYTE_CH], 16))
             idx += BYTE_CH
-
+        self.giaddr += ")"
+        
         # decode client hardware address and padding; 6 + 10 bytes
-        self.chaddr = text[idx:idx+BYTE_CH]
+        self.chaddr = f"0x{text[idx:idx+12]} ({text[idx:idx+BYTE_CH]}"
         idx += BYTE_CH
         for byte in range(HW_ADDR_BYTES-1):
             self.chaddr += MAC_SEP + text[idx:idx+BYTE_CH]
             idx += BYTE_CH
-
+        self.chaddr += ")"
+        
         self.chaddr_pad = text[idx:idx+HW_ADDR_PAD_CH]
         idx += HW_ADDR_PAD_CH
         
