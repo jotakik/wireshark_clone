@@ -338,7 +338,7 @@ class DNS:
         NAME_END = "00" # ending label for data label
         SEP = '.'       # separator for names and IP addresses
 
-        CMPR_HIND = 0xc000  # compression label hex indicator    
+        CMPR_HIND = 0xC000  # compression label hex indicator    
         CMPR_CH = 4
 
         cmpr_table = dict()    
@@ -426,42 +426,91 @@ class DNS:
                 case 5 | 2 | 15:    # CNAME, NS, MX
                     idx, rdata = decode_name(idx)
                 case _ :            # Other types
+                    idx = len(text)
                     rdata = None                
             return idx, rdata
         
         # given number of items; decode and append to list (list in list or tuple in list)
         for i in range(self.num_q):
-            idx, qname = decode_name(idx)
-            idx, _, qtype = decode_type(idx)
-            idx, qclass = decode_class(idx)
-            self.questions.append((qname, qtype, qclass))
+            endidx, qname = decode_name(idx)
+            hname = "0x" + text[idx:endidx]
+            idx = endidx
+            endidx, _, qtype = decode_type(idx)
+            htype = "0x" + text[idx:endidx]
+            idx = endidx
+            endidx, qclass = decode_class(idx)
+            hclass = "0x" + text[idx:endidx]
+            idx = endidx
+            self.questions.append(( (hname, qname), (htype, qtype), (hclass, qclass) ))
 
         for i in range(self.num_answer):
-            idx, rname = decode_name(idx)
-            idx, itype, rtype = decode_type(idx)
-            idx, rclass = decode_class(idx)
-            idx, ttl = decode_ttl(idx)
-            idx, rdata_len = decode_rdata_len(idx)
-            idx, rdata = decode_rdata(idx, itype, rdata_len)
-            self.answers.append((rname, rtype, rclass, ttl, rdata_len, rdata))
+            endidx, rname = decode_name(idx)
+            hname = "0x" + text[idx:endidx]
+            idx = endidx
+            endidx, itype, rtype = decode_type(idx)
+            htype = "0x" + text[idx:endidx]
+            idx = endidx
+            endidx, rclass = decode_class(idx)
+            hclass = "0x" + text[idx:endidx]
+            idx = endidx
+            endidx, ttl = decode_ttl(idx)
+            httl = "0x" + text[idx:endidx]
+            idx = endidx
+            endidx, rdata_len = decode_rdata_len(idx)
+            hrdatalen = "0x" + text[idx:endidx]
+            idx = endidx
+            endidx, rdata = decode_rdata(idx, itype, rdata_len)
+            hrdata = "0x" + text[idx:endidx]
+            idx = endidx
+            self.answers.append(((hname, rname), (htype, rtype), (hclass, rclass), 
+                                 (httl, ttl), (hrdatalen, rdata_len), (hrdata, rdata)
+                                 ))
 
         for i in range(self.num_authority):
-            idx, rname = decode_name(idx)
-            idx, itype, rtype = decode_type(idx)
-            idx, rclass = decode_class(idx)
-            idx, ttl = decode_ttl(idx)
-            idx, rdata_len = decode_rdata_len(idx)
-            idx, rdata = decode_rdata(idx, itype, rdata_len)
-            self.authority.append((rname, rtype, rclass, ttl, rdata_len, rdata))
+            endidx, rname = decode_name(idx)
+            hname = "0x" + text[idx:endidx]
+            idx = endidx
+            endidx, itype, rtype = decode_type(idx)
+            htype = "0x" + text[idx:endidx]
+            idx = endidx
+            endidx, rclass = decode_class(idx)
+            hclass = "0x" + text[idx:endidx]
+            idx = endidx
+            endidx, ttl = decode_ttl(idx)
+            httl = "0x" + text[idx:endidx]
+            idx = endidx
+            endidx, rdata_len = decode_rdata_len(idx)
+            hrdatalen = "0x" + text[idx:endidx]
+            idx = endidx
+            endidx, rdata = decode_rdata(idx, itype, rdata_len)
+            hrdata = "0x" + text[idx:endidx]
+            idx = endidx
+            self.authority.append(((hname, rname), (htype, rtype), (hclass, rclass), 
+                                   (httl, ttl), (hrdatalen, rdata_len), (hrdata, rdata)
+                                   ))
             
         for i in range(self.num_additional):
-            idx, rname = decode_name(idx)
-            idx, itype, rtype = decode_type(idx)
-            idx, rclass = decode_class(idx)
-            idx, ttl = decode_ttl(idx)
-            idx, rdata_len = decode_rdata_len(idx)
-            idx, rdata = decode_rdata(idx, itype, rdata_len)
-            self.additional.append((rname, rtype, rclass, ttl, rdata_len, rdata))
+            endidx, rname = decode_name(idx)
+            hname = "0x" + text[idx:endidx]
+            idx = endidx
+            endidx, itype, rtype = decode_type(idx)
+            htype = "0x" + text[idx:endidx]
+            idx = endidx
+            endidx, rclass = decode_class(idx)
+            hclass = "0x" + text[idx:endidx]
+            idx = endidx
+            endidx, ttl = decode_ttl(idx)
+            httl = "0x" + text[idx:endidx]
+            idx = endidx
+            endidx, rdata_len = decode_rdata_len(idx)
+            hrdatalen = "0x" + text[idx:endidx]
+            idx = endidx
+            endidx, rdata = decode_rdata(idx, itype, rdata_len)
+            hrdata = "0x" + text[idx:endidx]
+            idx = endidx
+            self.additional.append(((hname, rname), (htype, rtype), (hclass, rclass), 
+                                    (httl, ttl), (hrdatalen, rdata_len), (hrdata, rdata)
+                                    ))
 
 
 class DHCP:
@@ -581,7 +630,6 @@ class DHCP:
         
         # decode client IP address; 4 bytes
         self.ciaddr = f"0x{text[idx:idx+8]} ({str(int(text[idx:idx+BYTE_CH], 16))}"
-        
         idx += BYTE_CH
         for byte in range(IP_ADDR_BYTES-1):
             self.ciaddr += IP_SEP + str(int(text[idx:idx+BYTE_CH], 16))
@@ -813,39 +861,42 @@ while True:
                 if len(layer7.questions) != 0:
                     print('Queries: ')
                     for question in layer7.questions:
-                        print('\tName: {}'.format(question[0]))
-                        print('\tType: {}'.format(question[1]))
-                        print('\tClass: {}'.format(question[2]))
+                        print('\tName: {} ({})'.format(question[0][0], question[0][1]))
+                        print('\tType: {} ({})'.format(question[1][0], question[1][1]))
+                        print('\tClass: {} ({})'.format(question[2][0], question[2][1]))
                         print()
                 if len(layer7.answers) != 0:
                     print('Answers: ')
                     for answer in layer7.answers:
-                        print('\tName: {}'.format(answer[0]))
-                        print('\tType: {}'.format(answer[1]))
-                        print('\tClass: {}'.format(answer[2]))
-                        print('\tTime to live: {}'.format(answer[3]))
-                        print('\tData Length: {}'.format(answer[4]))
-                        print('\tAddress: {}\n'.format(answer[5]) if answer[5] is not None else "", end="")
+                        print('\tName: {} ({})'.format(answer[0][0], answer[0][1]))
+                        print('\tType: {} ({})'.format(answer[1][0], answer[1][1]))
+                        print('\tClass: {} ({})'.format(answer[2][0], answer[2][1]))
+                        print('\tTime to live: {} ({})'.format(answer[3][0], answer[3][1]))
+                        print('\tData Length: {} ({})'.format(answer[4][0], answer[4][1]))
+                        print('\tRDATA: {}'.format(answer[5][0]), end="")
+                        print(f" ({answer[5][1]})" if answer[5][1] is not None else "")
                         print()
                 if len(layer7.authority) != 0:
                     print('Authority Records: ')
                     for record in layer7.authority:
-                        print('\tName: {}'.format(record[0]))
-                        print('\tType: {}'.format(record[1]))
-                        print('\tClass: {}'.format(record[2]))
-                        print('\tTime to live: {}'.format(record[3]))
-                        print('\tData Length: {}'.format(record[4]))
-                        print('\tAddress: {}\n'.format(record[5]) if record[5] is not None else "", end="")
+                        print('\tName: {} ({})'.format(record[0][0], record[0][1]))
+                        print('\tType: {} ({})'.format(record[1][0], record[1][1]))
+                        print('\tClass: {} ({})'.format(record[2][0], record[2][1]))
+                        print('\tTime to live: {} ({})'.format(record[3][0], record[3][1]))
+                        print('\tData Length: {} ({})'.format(record[4][0], record[4][1]))
+                        print('\tRDATA: {}'.format(record[5][0]), end="")
+                        print(f" ({record[5][1]})" if record[5][1] is not None else "")
                         print()
                 if len(layer7.additional) != 0:
                     print('Additional Records: ')
                     for record in layer7.additional:
-                        print('\tName: {}'.format(record[0]))
-                        print('\tType: {}'.format(record[1]))
-                        print('\tClass: {}'.format(record[2]))
-                        print('\tTime to live: {}'.format(record[3]))
-                        print('\tData Length: {}'.format(record[4]))
-                        print('\tAddress: {}\n'.format(record[5]) if record[5] is not None else "", end="")
+                        print('\tName: {} ({})'.format(record[0][0], record[0][1]))
+                        print('\tType: {} ({})'.format(record[1][0], record[1][1]))
+                        print('\tClass: {} ({})'.format(record[2][0], record[2][1]))
+                        print('\tTime to live: {} ({})'.format(record[3][0], record[3][1]))
+                        print('\tData Length: {} ({})'.format(record[4][0], record[4][1]))
+                        print('\tRDATA: {}'.format(record[5][0]), end="")
+                        print(f" ({record[5][1]})" if record[5][1] is not None else "")
                         print()
         else:
             print('Layer 4: N/A')
