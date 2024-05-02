@@ -652,7 +652,7 @@ class DHCP:
             if option == 0:
                 self.options.append((option, self.options_table[option], "Padding"))
             
-            if option == 1 or option == 54 or option == 50:
+            if option == 1 or option == 3 or option == 50 or option == 54:
                 ip_address = ""
                 for i in range(length):
                     ip_address += str(int(data[i*BYTE_CH:i*BYTE_CH+BYTE_CH], 16))
@@ -663,16 +663,16 @@ class DHCP:
             elif option == 6:
                 dns_server1 = ""
                 dns_server2 = ""
-                for i in range(length/2):
+                for i in range(length//2):
                     dns_server1 += str(int(data[i*BYTE_CH:i*BYTE_CH+BYTE_CH], 16))
-                    dns_server2 += str(int(data[(length/2+i)*BYTE_CH:(length/2+i)*BYTE_CH+BYTE_CH], 16))
-                    if i != length/2-1:
+                    dns_server2 += str(int(data[(length//2+i)*BYTE_CH:(length//2+i)*BYTE_CH+BYTE_CH], 16))
+                    if i != length//2-1:
                         dns_server1 += IP_SEP
                         dns_server2 += IP_SEP
                 self.options.append((option, self.options_table[option], f"DNS Server 1: {dns_server1} DNS Server 2: {dns_server2}"))
                     
             
-            elif option == 12:
+            elif option == 12 or option == 15:
                 hostname = ""
                 for i in range(length):
                     hostname += chr(int(data[i*BYTE_CH:i*BYTE_CH+BYTE_CH], 16))
