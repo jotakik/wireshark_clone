@@ -650,7 +650,7 @@ class DHCP:
             data = text[idx:idx+length*BYTE_CH]
             idx += length*BYTE_CH
             if option == 0:
-                self.options.append((option, self.options_table[option], f"0x{data} Padding"))
+                self.options.append((option, self.options_table[option], f"0x{data} (Padding)"))
             
             if option == 1 or option == 3 or option == 50 or option == 54:
                 ip_address = ""
@@ -658,7 +658,7 @@ class DHCP:
                     ip_address += str(int(data[i*BYTE_CH:i*BYTE_CH+BYTE_CH], 16))
                     if i != length-1:
                         ip_address += IP_SEP
-                self.options.append((option, self.options_table[option], ip_address))
+                self.options.append((option, self.options_table[option], f"0x{data} ({ip_address})"))
             
             elif option == 6:
                 dns_server1 = ""
@@ -669,26 +669,26 @@ class DHCP:
                     if i != length//2-1:
                         dns_server1 += IP_SEP
                         dns_server2 += IP_SEP
-                self.options.append((option, self.options_table[option], f"DNS Server 1: {dns_server1} DNS Server 2: {dns_server2}"))
+                self.options.append((option, self.options_table[option], f"DNS Server 1: 0x{data[0:len(data)//2]} ({dns_server1}) DNS Server 2: 0x{data[len(data)//2:]} ({dns_server2})"))
                     
             
             elif option == 12 or option == 15:
                 hostname = ""
                 for i in range(length):
                     hostname += chr(int(data[i*BYTE_CH:i*BYTE_CH+BYTE_CH], 16))
-                self.options.append((option, self.options_table[option], hostname))
+                self.options.append((option, self.options_table[option], f"0x{data} ({hostname})"))
 
             elif option == 51 or option == 58 or option == 59:
-                self.options.append((option, self.options_table[option], f"{int(data, 16)} seconds"))
+                self.options.append((option, self.options_table[option], f"0x{data} ({int(data, 16)} seconds)"))
             elif option == 53:
-                self.options.append((option, self.options_table[option], f"{int(data, 16)} ({self.message_type_table[int(data, 16)]})"))
+                self.options.append((option, self.options_table[option], f"0x{data} ({int(data, 16)} ({self.message_type_table[int(data, 16)]}))"))
             elif option == 55:
                 parameters = []
                 for i in range(length):
-                    parameters.append((int(data[i*BYTE_CH:i*BYTE_CH+BYTE_CH], 16), self.options_table.get(int(data[i*BYTE_CH:i*BYTE_CH+BYTE_CH], 16))))
+                    parameters.append((f"0x{data[i*BYTE_CH:i*BYTE_CH+BYTE_CH]}", int(data[i*BYTE_CH:i*BYTE_CH+BYTE_CH], 16), self.options_table.get(int(data[i*BYTE_CH:i*BYTE_CH+BYTE_CH], 16))))
                 self.options.append((option, self.options_table[option], parameters))
             elif option == 57:
-                self.options.append((option, self.options_table[option], f"{int(data, 16)} bytes"))
+                self.options.append((option, self.options_table[option], f"0x{data} ({int(data, 16)} bytes)"))
             elif option == 61:
                 client_mac = ""
                 idtype = self.htype_table.get(int(data[:2], 16))
@@ -696,12 +696,12 @@ class DHCP:
                     client_mac += data[i]
                     if i % 2 == 1 and i != len(data)-1:
                         client_mac += MAC_SEP
-                self.options.append((option, self.options_table[option], f"Type: {int(data[:2], 16)} ({idtype}) Client Mac: {client_mac}"))
+                self.options.append((option, self.options_table[option], f"0x{data} (Type: {int(data[:2], 16)} ({idtype}) Client Mac: {client_mac})"))
             else:
                 self.options.append((option, self.options_table[option], data))
         
         # decode end of options list
-        self.options.append((255, self.options_table[255], "End of Options List"))
+        self.options.append((255, self.options_table[255], f"0xff (End of Options List)"))
         
         
 
