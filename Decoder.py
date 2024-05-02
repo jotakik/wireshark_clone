@@ -282,6 +282,7 @@ class DNS:
         idx += 4
         #identify flags
         self.flags = int(text[idx:idx+4], 16)
+        temp = self.flags
         if self.flags & 32768 == 32768:
             self.QR = (1, 'Response')
         else:
@@ -315,7 +316,7 @@ class DNS:
                 self.errors = ('0001', 'Name Does not Exist')
             else:
                 self.errors = ('0000', 'No Error')
-        self.flags = '0x' + text[idx:idx+4]
+        self.flags = f'0x{text[idx:idx+4]} ({temp})'
         idx +=4
         self.hnum_q = '0x' + text[idx:idx+4]
         self.num_q = int(text[idx:idx+4], 16)
@@ -620,6 +621,7 @@ class DHCP:
             idx += BYTE_CH
         self.chaddr += ")"
         
+        
         self.chaddr_pad = text[idx:idx+HW_ADDR_PAD_CH]
         idx += HW_ADDR_PAD_CH
         
@@ -718,7 +720,7 @@ while True:
     print()
     text = Lines(f)
     text.parse()
-
+    #create a file and start writing to it:
     while len(text.text) != 0:
         layer2 = Ethernet()
         layer2.parse(text)
