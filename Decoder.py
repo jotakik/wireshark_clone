@@ -650,7 +650,7 @@ class DHCP:
             data = text[idx:idx+length*BYTE_CH]
             idx += length*BYTE_CH
             if option == 0:
-                self.options.append((option, self.options_table[option], "Padding"))
+                self.options.append((option, self.options_table[option], f"0x{data} Padding"))
             
             if option == 1 or option == 54 or option == 50:
                 ip_address = ""
