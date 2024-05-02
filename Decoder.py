@@ -652,7 +652,7 @@ class DHCP:
             if option == 0:
                 self.options.append((option, self.options_table[option], f"0x{data} Padding"))
             
-            if option == 1 or option == 54 or option == 50:
+            if option == 1 or option == 3 or option == 50 or option == 54:
                 ip_address = ""
                 for i in range(length):
                     ip_address += str(int(data[i*BYTE_CH:i*BYTE_CH+BYTE_CH], 16))
@@ -663,16 +663,16 @@ class DHCP:
             elif option == 6:
                 dns_server1 = ""
                 dns_server2 = ""
-                for i in range(length/2):
+                for i in range(length//2):
                     dns_server1 += str(int(data[i*BYTE_CH:i*BYTE_CH+BYTE_CH], 16))
-                    dns_server2 += str(int(data[(length/2+i)*BYTE_CH:(length/2+i)*BYTE_CH+BYTE_CH], 16))
-                    if i != length/2-1:
+                    dns_server2 += str(int(data[(length//2+i)*BYTE_CH:(length//2+i)*BYTE_CH+BYTE_CH], 16))
+                    if i != length//2-1:
                         dns_server1 += IP_SEP
                         dns_server2 += IP_SEP
                 self.options.append((option, self.options_table[option], f"DNS Server 1: {dns_server1} DNS Server 2: {dns_server2}"))
                     
             
-            elif option == 12:
+            elif option == 12 or option == 15:
                 hostname = ""
                 for i in range(length):
                     hostname += chr(int(data[i*BYTE_CH:i*BYTE_CH+BYTE_CH], 16))
@@ -712,135 +712,144 @@ while True:
     print()
     text = Lines(f)
     text.parse()
-    layer2 = Ethernet()
-    layer2.parse(text)
-    layer3 = IP()
-    layer3.parse(text)
-    #print layer 2 stuff
-    print('Layer 2: Ethernet II')
-    print('Destination: {0} ({1})'.format(layer2.hd_mac, layer2.d_mac))
-    print('Source: {0} ({1})'.format(layer2.hs_mac, layer2.s_mac))
-    print('Type: {0} ({1})'.format(layer2.type, layer2.type_name))
-    print()
-    #print layer 3 stuff
-    print('Layer 3: IPv4')
-    print('Version: {0} ({1})'.format(layer3.hversion, layer3.version))
-    print('IHL: {0} ({1} bytes)'.format(layer3.hIHL, layer3.IHL))
-    print('ToS: {}'.format(layer3.tos))
-    print('Total Length: {0} ({1})'.format(layer3.hlength, layer3.length))
-    print('Identification: {}'.format(layer3.id))
-    print('Flags: {}'.format(layer3.hflags))
-    print(' Reserved: {}'.format(layer3.r))
-    print(' DF: {}'.format(layer3.df))
-    print(' MF: {}'.format(layer3.mf))
-    print(' Fragment Offset: {}'.format(layer3.offset))
-    print('TTL: {0} ({1})'.format(layer3.httl, layer3.ttl))
-    print('Protocol: {0} ({1})'.format(layer3.protocol, layer3.protocol_name))
-    print('Header Checksum: {}'.format(layer3.checksum))
-    print('Source Address: {0} ({1})'.format(layer3.hsource, layer3.source))
-    print('Destination Address: {0} ({1})'.format(layer3.hdestination, layer3.destination))
-    if layer3.options != None:
-        print('Options: 0x{}'.format(layer3.options))
-    print()
-    #print layer 4; skip if not udp
-    if layer3.protocol == '0x11':
-        layer4 = UDP()
-        layer4.decode(text)
-        print('Layer 4: UDP')
-        print('Source Port: {0} ({1})'.format(layer4.hs_port, layer4.s_port))
-        print('Destination Port: {0} ({1})'.format(layer4.hd_port, layer4.d_port))
-        print('Length: {0} ({1})'.format(layer4.hlength, layer4.length))
-        print('Checksum: {}'.format(layer4.checksum))
-        print()
-        #print layer 7 stuff
-        #dhcp finish
-        if layer4.s_port == 68 or layer4.d_port == 68:
-            layer7 = DHCP()
-            layer7.decode(text)
-            print(f"Message type: {layer7.mtype}")
-            print(f"Hardware type: {layer7.htype}")
-            print(f"Hardware address length: {layer7.hlen}")
-            print(f"Hops: {layer7.hops}")
-            print(f"Transaction ID: {layer7.xid}")
-            print(f"Seconds elapsed: {layer7.secs}")
-            print(f" {layer7.flags[0]}... .... .... .... = Broadcast flag")
-            print(f" .{layer7.flags[1:4]} {layer7.flags[4:8]} {layer7.flags[8:12]} {layer7.flags[12:]} = Reserved flags")
-            print(f"Client IP address: {layer7.ciaddr}")
-            print(f"Your (client) IP address: {layer7.yiaddr}")
-            print(f"Next server IP address: {layer7.siaddr}")
-            print(f"Relay agent IP address: {layer7.giaddr}")
-            print(f"Client MAC address: {layer7.chaddr}")
-            print(f"Client hardware address padding: {layer7.chaddr_pad}")
-            print("Server host name not given" if layer7.sname is None else f"Server host name: {layer7.sname}")
-            print("Boot file name not given" if layer7.file is None else f"Boot file name: {layer7.file}")
-            print("Magic cookie not given" if layer7.magic_cookie is None else f"Magic cookie: {layer7.magic_cookie}")
-            print("Options: ")
-            for option in layer7.options:
-                print(f"\t{option[0]} ({option[1]}): {option[2]}")
-            print()
-            
 
-        elif layer4.s_port == 53 or layer4.d_port == 53:
-            layer7 = DNS()
-            layer7.decode(text)
-            print('Transaction ID: {}'.format(layer7.id))
-            print('Flags: {}'.format(layer7.flags))
-            print(' {0}... .... .... .... = {1}'.format(layer7.QR[0], layer7.QR[1]))
-            print(' .{0}... .... .... = {1}'.format(layer7.OpCode[0], layer7.OpCode[1]))
-            if layer7.QR[0] == 1:
-                print(' .... .{0}.. .... .... = {1}'.format(layer7.AA[0], layer7.AA[1]))
-            print(' .... ..{0}. .... .... = {1}'.format(layer7.TC[0], layer7.TC[1]))
-            print(' .... ...{0} .... .... = {1}'.format(layer7.RD[0], layer7.RD[1]))
-            if layer7.QR[0] == 1:
-                print(' .... .... {0}... .... = {1}'.format(layer7.RA[0], layer7.RA[1]))
-                print(' .... .... .... {0} = {1}'.format(layer7.errors[0], layer7.errors[1]))
-            print('Questions: {}'.format(layer7.num_q))
-            print('Answers RRs: {}'.format(layer7.num_answer))
-            print('Authority RRs: {}'.format(layer7.num_authority))
-            print('Additional RRs: {}'.format(layer7.num_additional))
-            if len(layer7.questions) != 0:
-                print('Queries: ')
-                for question in layer7.questions:
-                    print('\tName: {}'.format(question[0]))
-                    print('\tType: {}'.format(question[1]))
-                    print('\tClass: {}'.format(question[2]))
-                    print()
-            if len(layer7.answers) != 0:
-                print('Answers: ')
-                for answer in layer7.answers:
-                    print('\tName: {}'.format(answer[0]))
-                    print('\tType: {}'.format(answer[1]))
-                    print('\tClass: {}'.format(answer[2]))
-                    print('\tTime to live: {}'.format(answer[3]))
-                    print('\tData Length: {}'.format(answer[4]))
-                    print('\tAddress: {}\n'.format(answer[5]) if answer[5] is not None else "", end="")
-                    print()
-            if len(layer7.authority) != 0:
-                print('Authority Records: ')
-                for record in layer7.authority:
-                    print('\tName: {}'.format(record[0]))
-                    print('\tType: {}'.format(record[1]))
-                    print('\tClass: {}'.format(record[2]))
-                    print('\tTime to live: {}'.format(record[3]))
-                    print('\tData Length: {}'.format(record[4]))
-                    print('\tAddress: {}\n'.format(record[5]) if record[5] is not None else "", end="")
-                    print()
-            if len(layer7.additional) != 0:
-                print('Additional Records: ')
-                for record in layer7.additional:
-                    print('\tName: {}'.format(record[0]))
-                    print('\tType: {}'.format(record[1]))
-                    print('\tClass: {}'.format(record[2]))
-                    print('\tTime to live: {}'.format(record[3]))
-                    print('\tData Length: {}'.format(record[4]))
-                    print('\tAddress: {}\n'.format(record[5]) if record[5] is not None else "", end="")
-                    print()
-    else:
-        print('Layer 4: N/A')
+    while len(text.text) != 0:
+        layer2 = Ethernet()
+        layer2.parse(text)
+        layer3 = IP()
+        layer3.parse(text)
+        #print layer 2 stuff
+        print('Layer 2: Ethernet II')
+        print('Destination: {0} ({1})'.format(layer2.hd_mac, layer2.d_mac))
+        print('Source: {0} ({1})'.format(layer2.hs_mac, layer2.s_mac))
+        print('Type: {0} ({1})'.format(layer2.type, layer2.type_name))
         print()
-        print('Layer 7: N/A')
-    while text.num != '0010' and len(text.text) != 0:
-        text.parse()
+        #print layer 3 stuff
+        print('Layer 3: IPv4')
+        print('Version: {0} ({1})'.format(layer3.hversion, layer3.version))
+        print('IHL: {0} ({1} bytes)'.format(layer3.hIHL, layer3.IHL))
+        print('ToS: {}'.format(layer3.tos))
+        print('Total Length: {0} ({1})'.format(layer3.hlength, layer3.length))
+        print('Identification: {}'.format(layer3.id))
+        print('Flags: {}'.format(layer3.hflags))
+        print(' Reserved: {}'.format(layer3.r))
+        print(' DF: {}'.format(layer3.df))
+        print(' MF: {}'.format(layer3.mf))
+        print(' Fragment Offset: {}'.format(layer3.offset))
+        print('TTL: {0} ({1})'.format(layer3.httl, layer3.ttl))
+        print('Protocol: {0} ({1})'.format(layer3.protocol, layer3.protocol_name))
+        print('Header Checksum: {}'.format(layer3.checksum))
+        print('Source Address: {0} ({1})'.format(layer3.hsource, layer3.source))
+        print('Destination Address: {0} ({1})'.format(layer3.hdestination, layer3.destination))
+        if layer3.options != None:
+            print('Options: 0x{}'.format(layer3.options))
+        print()
+        #print layer 4; skip if not udp
+        if layer3.protocol == '0x11':
+            layer4 = UDP()
+            layer4.decode(text)
+            print('Layer 4: UDP')
+            print('Source Port: {0} ({1})'.format(layer4.hs_port, layer4.s_port))
+            print('Destination Port: {0} ({1})'.format(layer4.hd_port, layer4.d_port))
+            print('Length: {0} ({1})'.format(layer4.hlength, layer4.length))
+            print('Checksum: {}'.format(layer4.checksum))
+            print()
+            #print layer 7 stuff
+            #dhcp finish
+            if layer4.s_port == 67 or layer4.d_port == 67:
+                layer7 = DHCP()
+                layer7.decode(text)
+                print('Layer 7: DHCP')
+                print(f"Message type: {layer7.mtype}")
+                print(f"Hardware type: {layer7.htype}")
+                print(f"Hardware address length: {layer7.hlen}")
+                print(f"Hops: {layer7.hops}")
+                print(f"Transaction ID: {layer7.xid}")
+                print(f"Seconds elapsed: {layer7.secs}")
+                print(f" {layer7.flags[0]}... .... .... .... = Broadcast flag")
+                print(f" .{layer7.flags[1:4]} {layer7.flags[4:8]} {layer7.flags[8:12]} {layer7.flags[12:]} = Reserved flags")
+                print(f"Client IP address: {layer7.ciaddr}")
+                print(f"Your (client) IP address: {layer7.yiaddr}")
+                print(f"Next server IP address: {layer7.siaddr}")
+                print(f"Relay agent IP address: {layer7.giaddr}")
+                print(f"Client MAC address: {layer7.chaddr}")
+                print(f"Client hardware address padding: {layer7.chaddr_pad}")
+                print("Server host name not given" if layer7.sname is None else f"Server host name: {layer7.sname}")
+                print("Boot file name not given" if layer7.file is None else f"Boot file name: {layer7.file}")
+                print("Magic cookie not given" if layer7.magic_cookie is None else f"Magic cookie: {layer7.magic_cookie}")
+                print("Options: ")
+                for option in layer7.options:
+                    print(f"\t{option[0]} ({option[1]}): {option[2]}")
+                print()
+                
+
+            elif layer4.s_port == 53 or layer4.d_port == 53:
+                layer7 = DNS()
+                layer7.decode(text)
+                print('Layer 7: DNS')
+                print('Transaction ID: {}'.format(layer7.id))
+                print('Flags: {}'.format(layer7.flags))
+                print(' {0}... .... .... .... = {1}'.format(layer7.QR[0], layer7.QR[1]))
+                print(' .{0}... .... .... = {1}'.format(layer7.OpCode[0], layer7.OpCode[1]))
+                if layer7.QR[0] == 1:
+                    print(' .... .{0}.. .... .... = {1}'.format(layer7.AA[0], layer7.AA[1]))
+                print(' .... ..{0}. .... .... = {1}'.format(layer7.TC[0], layer7.TC[1]))
+                print(' .... ...{0} .... .... = {1}'.format(layer7.RD[0], layer7.RD[1]))
+                if layer7.QR[0] == 1:
+                    print(' .... .... {0}... .... = {1}'.format(layer7.RA[0], layer7.RA[1]))
+                    print(' .... .... .... {0} = {1}'.format(layer7.errors[0], layer7.errors[1]))
+                print('Questions: {}'.format(layer7.num_q))
+                print('Answers RRs: {}'.format(layer7.num_answer))
+                print('Authority RRs: {}'.format(layer7.num_authority))
+                print('Additional RRs: {}'.format(layer7.num_additional))
+                if len(layer7.questions) != 0:
+                    print('Queries: ')
+                    for question in layer7.questions:
+                        print('\tName: {}'.format(question[0]))
+                        print('\tType: {}'.format(question[1]))
+                        print('\tClass: {}'.format(question[2]))
+                        print()
+                if len(layer7.answers) != 0:
+                    print('Answers: ')
+                    for answer in layer7.answers:
+                        print('\tName: {}'.format(answer[0]))
+                        print('\tType: {}'.format(answer[1]))
+                        print('\tClass: {}'.format(answer[2]))
+                        print('\tTime to live: {}'.format(answer[3]))
+                        print('\tData Length: {}'.format(answer[4]))
+                        print('\tAddress: {}\n'.format(answer[5]) if answer[5] is not None else "", end="")
+                        print()
+                if len(layer7.authority) != 0:
+                    print('Authority Records: ')
+                    for record in layer7.authority:
+                        print('\tName: {}'.format(record[0]))
+                        print('\tType: {}'.format(record[1]))
+                        print('\tClass: {}'.format(record[2]))
+                        print('\tTime to live: {}'.format(record[3]))
+                        print('\tData Length: {}'.format(record[4]))
+                        print('\tAddress: {}\n'.format(record[5]) if record[5] is not None else "", end="")
+                        print()
+                if len(layer7.additional) != 0:
+                    print('Additional Records: ')
+                    for record in layer7.additional:
+                        print('\tName: {}'.format(record[0]))
+                        print('\tType: {}'.format(record[1]))
+                        print('\tClass: {}'.format(record[2]))
+                        print('\tTime to live: {}'.format(record[3]))
+                        print('\tData Length: {}'.format(record[4]))
+                        print('\tAddress: {}\n'.format(record[5]) if record[5] is not None else "", end="")
+                        print()
+        else:
+            print('Layer 4: N/A')
+            print()
+            print('Layer 7: N/A')
+
+        while text.num != '0010' and len(text.text) != 0:
+            text.parse()
+        # see if there is another Ethernet frame in the file by trying to skip the empty line
+        if len(text.text) == 0:
+            text.parse()
+
     if len(text.text) == 0:
         f.close()
         again = input('Analyze another file? (Y/N): ')
