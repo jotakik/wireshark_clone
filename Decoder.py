@@ -764,10 +764,12 @@ class DHCP:
 
 #fix output reqs
 while True:
-    f = open(input('Hex dump file name: '), 'r')
+    filename = input('Hex dump file name: ')
+    f = open(filename, 'r')
     print()
     text = Lines(f)
     text.parse()
+    
     #create a file and start writing to it:
     while len(text.text) != 0:
         layer2 = Ethernet()
@@ -902,7 +904,6 @@ while True:
             print('Layer 4: N/A')
             print()
             print('Layer 7: N/A')
-
         while text.num != '0010' and len(text.text) != 0:
             text.parse()
         # see if there is another Ethernet frame in the file by trying to skip the empty line
@@ -911,9 +912,164 @@ while True:
 
     if len(text.text) == 0:
         f.close()
-        again = input('Analyze another file? (Y/N): ')
-        while again.lower() not in ['y', 'n']:
+        option = input('Analyze another file or save to .txt? (Y/N/S)')
+        while option.lower() not in ['y', 'n', 's']:
             print('Invalid Input')
-            again = input('Analyze another file? (Y/N): ')
-        if again.lower() == 'n':
+            option = input('Analyze another file or save to .txt? (Y/N/S)')
+        if option.lower() == 'n':
             break
+        elif option.lower() == 'y':
+            continue
+        elif option.lower() == 's':
+            fname = input('Enter the name of the file to save to: ')
+            with open(fname, 'a') as file:
+                f = open(filename, 'r')
+                text = Lines(f)
+                text.parse()
+                
+                #create a file and start writing to it:
+                while len(text.text) != 0:
+                    layer2 = Ethernet()
+                    layer2.parse(text)
+                    layer3 = IP()
+                    layer3.parse(text)
+                    #write layer 2 stuff
+                    file.write('Layer 2: Ethernet II\n')
+                    file.write('Destination: {0} ({1})'.format(layer2.hd_mac, layer2.d_mac) + '\n')
+                    file.write('Source: {0} ({1})'.format(layer2.hs_mac, layer2.s_mac) + '\n')
+                    file.write('Type: {0} ({1})'.format(layer2.type, layer2.type_name) + '\n')
+                    file.write('\n')
+                    #print layer 3 stuff
+                    file.write('Layer 3: IPv4\n')
+                    file.write('Version: {0} ({1})'.format(layer3.hversion, layer3.version) + '\n')
+                    file.write('IHL: {0} ({1} bytes)'.format(layer3.hIHL, layer3.IHL) + '\n')
+                    file.write('ToS: {}'.format(layer3.tos) + '\n')
+                    file.write('Total Length: {0} ({1})'.format(layer3.hlength, layer3.length) + '\n')
+                    file.write('Identification: {}'.format(layer3.id) + '\n')
+                    file.write('Flags: {}'.format(layer3.hflags) + '\n')
+                    file.write(' Reserved: {}'.format(layer3.r) + '\n')
+                    file.write(' DF: {}'.format(layer3.df) + '\n')
+                    file.write(' MF: {}'.format(layer3.mf) + '\n')
+                    file.write(' Fragment Offset: {}'.format(layer3.offset) + '\n')
+                    file.write('TTL: {0} ({1})'.format(layer3.httl, layer3.ttl)+ '\n')
+                    file.write('Protocol: {0} ({1})'.format(layer3.protocol, layer3.protocol_name)+ '\n')
+                    file.write('Header Checksum: {}'.format(layer3.checksum)+ '\n')
+                    file.write('Source Address: {0} ({1})'.format(layer3.hsource, layer3.source)+ '\n')
+                    file.write('Destination Address: {0} ({1})'.format(layer3.hdestination, layer3.destination) + '\n')
+                    if layer3.options != None:
+                        print('Options: 0x{}'.format(layer3.options) + '\n')
+                    file.write('\n')
+                    #print layer 4; skip if not udp
+                    if layer3.protocol == '0x11':
+                        layer4 = UDP()
+                        layer4.decode(text)
+                        file.write('Layer 4: UDP\n')
+                        file.write('Source Port: {0} ({1})'.format(layer4.hs_port, layer4.s_port) + '\n')
+                        file.write('Destination Port: {0} ({1})'.format(layer4.hd_port, layer4.d_port) + '\n')
+                        file.write('Length: {0} ({1})'.format(layer4.hlength, layer4.length) + '\n')
+                        file.write('Checksum: {}'.format(layer4.checksum) + '\n')
+                        file.write("\n")
+                        #print layer 7 stuff
+                        #dhcp finish
+                        if layer4.s_port == 67 or layer4.d_port == 67:
+                            layer7 = DHCP()
+                            layer7.decode(text)
+                            file.write('Layer 7: DHCP\n')
+                            file.write(f"Message type: {layer7.mtype}\n")
+                            file.write(f"Hardware type: {layer7.htype}\n")
+                            file.write(f"Hardware address length: {layer7.hlen}\n")
+                            file.write(f"Hops: {layer7.hops}\n")
+                            file.write(f"Transaction ID: {layer7.xid}\n")
+                            file.write(f"Seconds elapsed: {layer7.secs}\n")
+                            file.write(f" {layer7.flags[0]}... .... .... .... = Broadcast flag\n")
+                            file.write(f" .{layer7.flags[1:4]} {layer7.flags[4:8]} {layer7.flags[8:12]} {layer7.flags[12:]} = Reserved flags\n")
+                            file.write(f"Client IP address: {layer7.ciaddr}\n")
+                            file.write(f"Your (client) IP address: {layer7.yiaddr}\n")
+                            file.write(f"Next server IP address: {layer7.siaddr}\n")
+                            file.write(f"Relay agent IP address: {layer7.giaddr}\n")
+                            file.write(f"Client MAC address: {layer7.chaddr}\n")
+                            file.write(f"Client hardware address padding: {layer7.chaddr_pad}\n")
+                            file.write("Server host name not given" if layer7.sname is None else f"Server host name: {layer7.sname}\n")
+                            file.write("Boot file name not given" if layer7.file is None else f"Boot file name: {layer7.file}\n")
+                            file.write("Magic cookie not given" if layer7.magic_cookie is None else f"Magic cookie: {layer7.magic_cookie}\n")
+                            file.write("Options: \n")
+                            for option in layer7.options:
+                                file.write(f"\t{option[0]} ({option[1]}): {option[2]}\n")
+                            file.write("\n")
+                            
+
+                        elif layer4.s_port == 53 or layer4.d_port == 53:
+                            layer7 = DNS()
+                            layer7.decode(text)
+                            file.write('Layer 7: DNS\n')
+                            file.write('Transaction ID: {}'.format(layer7.id)+ '\n')
+                            file.write('Flags: {}'.format(layer7.flags)+ '\n')
+                            file.write(' {0}... .... .... .... = {1}'.format(layer7.QR[0], layer7.QR[1])+ '\n')
+                            file.write(' .{0}... .... .... = {1}'.format(layer7.OpCode[0], layer7.OpCode[1])+ '\n')
+                            if layer7.QR[0] == 1:
+                                file.write(' .... .{0}.. .... .... = {1}'.format(layer7.AA[0], layer7.AA[1])+ '\n')
+                            file.write(' .... ..{0}. .... .... = {1}'.format(layer7.TC[0], layer7.TC[1])+ '\n')
+                            file.write(' .... ...{0} .... .... = {1}'.format(layer7.RD[0], layer7.RD[1])+ '\n')
+                            if layer7.QR[0] == 1:
+                                file.write(' .... .... {0}... .... = {1}'.format(layer7.RA[0], layer7.RA[1])+ '\n')
+                                file.write(' .... .... .... {0} = {1}'.format(layer7.errors[0], layer7.errors[1])+ '\n')
+                            file.write('Questions: {}'.format(layer7.num_q)+ '\n')
+                            file.write('Answers RRs: {}'.format(layer7.num_answer)+ '\n')
+                            file.write('Authority RRs: {}'.format(layer7.num_authority)+ '\n')
+                            file.write('Additional RRs: {}'.format(layer7.num_additional)+ '\n')
+                            if len(layer7.questions) != 0:
+                                file.write('Queries: \n')
+                                for question in layer7.questions:
+                                    file.write('\tName: {} ({})'.format(question[0][0], question[0][1])+ '\n')
+                                    file.write('\tType: {} ({})'.format(question[1][0], question[1][1])+ '\n')
+                                    file.write('\tClass: {} ({})'.format(question[2][0], question[2][1])+ '\n')
+                                    file.write('\n')
+                            if len(layer7.answers) != 0:
+                                file.write('Answers: \n')
+                                for answer in layer7.answers:
+                                    file.write('\tName: {} ({})'.format(answer[0][0], answer[0][1])+ '\n')
+                                    file.write('\tType: {} ({})'.format(answer[1][0], answer[1][1])+ '\n')
+                                    file.write('\tClass: {} ({})'.format(answer[2][0], answer[2][1])+ '\n')
+                                    file.write('\tTime to live: {} ({})'.format(answer[3][0], answer[3][1])+ '\n')
+                                    file.write('\tData Length: {} ({})'.format(answer[4][0], answer[4][1])+ '\n')
+                                    file.write('\tRDATA: {}'.format(answer[5][0]), end=""+ '\n')
+                                    file.write(f" ({answer[5][1]})" if answer[5][1] is not None else ""+ '\n')
+                                    file.write("\n")
+                            if len(layer7.authority) != 0:
+                                file.write('Authority Records: \n')
+                                for record in layer7.authority:
+                                    file.write('\tType: {} ({})'.format(record[1][0], record[1][1])+ '\n')
+                                    file.write('\tName: {} ({})'.format(record[0][0], record[0][1])+ '\n')
+                                    file.write('\tClass: {} ({})'.format(record[2][0], record[2][1])+ '\n')
+                                    file.write('\tTime to live: {} ({})'.format(record[3][0], record[3][1])+ '\n')
+                                    file.write('\tData Length: {} ({})'.format(record[4][0], record[4][1])+ '\n')
+                                    file.write('\tRDATA: {}'.format(record[5][0]), end=""+ '\n')
+                                    file.write(f" ({record[5][1]})" if record[5][1] is not None else ""+ '\n')
+                                    file.write("\n")
+                            if len(layer7.additional) != 0:
+                                file.write('Additional Records: \n')
+                                for record in layer7.additional:
+                                    file.write('\tName: {} ({})'.format(record[0][0], record[0][1])+ '\n')
+                                    file.write('\tType: {} ({})'.format(record[1][0], record[1][1])+ '\n')
+                                    file.write('\tClass: {} ({})'.format(record[2][0], record[2][1])+ '\n')
+                                    file.write('\tTime to live: {} ({})'.format(record[3][0], record[3][1])+ '\n')
+                                    file.write('\tData Length: {} ({})'.format(record[4][0], record[4][1])+ '\n')
+                                    file.write('\tRDATA: {}'.format(record[5][0]), end=""+ '\n')
+                                    file.write(f" ({record[5][1]})" if record[5][1] is not None else ""+ '\n')
+                                    file.write("\n")
+                    else:
+                        file.write('Layer 4: N/A\n')
+                        file.write("\n")
+                        file.write('Layer 7: N/A\n')
+                    while text.num != '0010' and len(text.text) != 0:
+                        text.parse()
+                    # see if there is another Ethernet frame in the file by trying to skip the empty line
+                    if len(text.text) == 0:
+                        text.parse()
+                if len(text.text) == 0:
+                    file.close()
+                    break
+                else:
+                    continue
+
+            
