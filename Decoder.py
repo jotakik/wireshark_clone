@@ -735,7 +735,7 @@ while True:
         print()
         #print layer 7 stuff
         #dhcp finish
-        if layer4.s_port == 68 or layer4.d_port == 68:
+        if layer4.s_port == 67 or layer4.d_port == 67:
             layer7 = DHCP()
             layer7.decode(text)
             print(f"Message type: {layer7.mtype}")
