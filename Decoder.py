@@ -273,7 +273,6 @@ class DNS:
             section += lines.text[lines.idx:]
             lines.parse()
         return section
-        
 
     def decode(self, lines):
         text = self.parse(lines)
@@ -859,6 +858,8 @@ while True:
                 print('Questions: {}'.format(layer7.num_q))
                 print('Answers RRs: {}'.format(layer7.num_answer))
                 print('Authority RRs: {}'.format(layer7.num_authority))
+                #Credits: ChatGPT
+                
                 print('Additional RRs: {}'.format(layer7.num_additional))
                 if len(layer7.questions) != 0:
                     print('Queries: ')
@@ -866,6 +867,10 @@ while True:
                         print('\tName: {} ({})'.format(question[0][0], question[0][1]))
                         print('\tType: {} ({})'.format(question[1][0], question[1][1]))
                         print('\tClass: {} ({})'.format(question[2][0], question[2][1]))
+                #My roommate sexually identifies as a DNS server. He
+                #is always asking me to query him. I don't know what to do.
+                #I'm not sure if I should query him or not. I'm not sure if
+                #I should query him or not. I'm not sure if I should query him or not.
                         print()
                 if len(layer7.answers) != 0:
                     print('Answers: ')
@@ -876,7 +881,7 @@ while True:
                         print('\tTime to live: {} ({})'.format(answer[3][0], answer[3][1]))
                         print('\tData Length: {} ({})'.format(answer[4][0], answer[4][1]))
                         print('\tRDATA: {}'.format(answer[5][0]), end="")
-                        print(f" ({answer[5][1]})" if answer[5][1] is not None else "")
+                        print(f" ({answer[5][1]})" if answer[5][1] is not None else "")            
                         print()
                 if len(layer7.authority) != 0:
                     print('Authority Records: ')
@@ -891,6 +896,8 @@ while True:
                         print()
                 if len(layer7.additional) != 0:
                     print('Additional Records: ')
+                #Spathis is a DNS server. He is always asking me to query him. I don't know what to do.
+                #Jeff Weng reincarnated as a DNS server. He is always asking me to query him. I don't know what to do.
                     for record in layer7.additional:
                         print('\tName: {} ({})'.format(record[0][0], record[0][1]))
                         print('\tType: {} ({})'.format(record[1][0], record[1][1]))
