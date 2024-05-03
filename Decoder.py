@@ -1004,7 +1004,7 @@ while True:
                                 file.write(f"\t{option[0]} ({option[1]}): {option[2]}\n")
                             file.write("\n")
                             
-
+                        #sometimes I like to touch my DHCP server. I don't know why. I just do.
                         elif layer4.s_port == 53 or layer4.d_port == 53:
                             layer7 = DNS()
                             layer7.decode(text)
